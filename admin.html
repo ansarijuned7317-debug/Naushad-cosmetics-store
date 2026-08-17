@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orders Dashboard — Naushad Cosmetics</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="nc.css">
+  <style>
+    body { padding: 0; }
+    .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 40px 20px 80px; }
+    .admin-head { text-align: center; margin-bottom: 28px; }
+    .admin-head h1 { font-family: 'Fraunces', serif; font-size: 1.8rem; margin: 0 0 6px; }
+    .admin-head p { color: var(--mute); margin: 0; font-size: 0.9rem; }
+
+    .admin-setup {
+      background: var(--white); border: 1px solid var(--line); border-radius: 16px;
+      padding: 22px; display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end;
+      margin-bottom: 28px; box-shadow: 0 10px 30px rgba(216,143,163,0.14);
+    }
+    @media (max-width: 700px) { .admin-setup { grid-template-columns: 1fr; } }
+    .admin-setup label { display:block; font-size: 0.76rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+    .admin-setup input {
+      width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px;
+      font-family: 'Manrope', sans-serif; font-size: 0.9rem;
+    }
+    .admin-setup button {
+      background: var(--gold); color: var(--white); border: 1px solid var(--gold);
+      padding: 11px 22px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+    }
+    .admin-setup button:hover { background: var(--gold-soft); }
+
+    .admin-status { font-size: 0.85rem; margin-bottom: 16px; min-height: 1.2em; }
+    .admin-status.error { color: #b3413a; }
+    .admin-status.ok { color: var(--sage); }
+
+    table { width: 100%; border-collapse: collapse; background: var(--white); border-radius: 14px; overflow: hidden; box-shadow: 0 10px 30px rgba(216,143,163,0.1); }
+    th, td { padding: 12px 14px; text-align: left; font-size: 0.82rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { background: var(--pink-dim); font-weight: 800; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.05em; color: var(--ink-soft); }
+    tr:last-child td { border-bottom: none; }
+    .status-pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; }
+    .status-new { background: rgba(201,151,75,0.18); color: #8a6a2f; }
+    .status-confirmed { background: rgba(124,148,115,0.2); color: #4f6446; }
+    .status-out_for_delivery { background: rgba(216,143,163,0.2); color: #8a4157; }
+    .status-delivered { background: rgba(124,148,115,0.35); color: #33441f; }
+    .status-cancelled { background: rgba(179,65,58,0.15); color: #b3413a; }
+    .empty-state { text-align: center; padding: 50px 20px; color: var(--mute); }
+  </style>
+</head>
+
+<body>
+  <div class="admin-wrap">
+    <div class="admin-head">
+      <h1>Orders Dashboard</h1>
+      <p>View and manage incoming orders from the website.</p>
+      <p style="margin-top:8px;"><a href="admin-products.html" style="color:var(--rose);font-weight:700;text-decoration:underline;">Manage Products →</a></p>
+    </div>
+
+    <div class="admin-setup">
+      <div>
+        <label for="apiUrl">Backend API URL</label>
+        <input type="text" id="apiUrl" placeholder="https://your-api.onrender.com">
+      </div>
+      <div>
+        <label for="adminEmail">Admin Email</label>
+        <input type="email" id="adminEmail" placeholder="admin@store.com">
+      </div>
+      <div>
+        <label for="adminPassword">Admin Password</label>
+        <input type="password" id="adminPassword" placeholder="••••••••">
+      </div>
+      <button id="loadBtn" type="button">Log In &amp; Load Orders</button>
+    </div>
+
+    <div class="admin-status" id="status"></div>
+    <div id="tableWrap"></div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let accessToken = null; // kept in memory only — never persisted to storage
+
+    // Remember the last-used API URL and email (not the password) between visits.
+    $('apiUrl').value = localStorage.getItem('nc_admin_api_url') || '';
+    $('adminEmail').value = localStorage.getItem('nc_admin_email') || '';
+
+    $('loadBtn').addEventListener('click', loginAndLoad);
+    $('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') loginAndLoad(); });
+
+    async function loginAndLoad() {
+      const apiUrl = $('apiUrl').value.trim().replace(/\/$/, '');
+      const email = $('adminEmail').value.trim();
+      const password = $('adminPassword').value;
+      const status = $('status');
+      const tableWrap = $('tableWrap');
+
+      if (!apiUrl || !email || !password) {
+        status.textContent = 'Enter the API URL, admin email, and password.';
+        status.className = 'admin-status error';
+        return;
+      }
+
+      localStorage.setItem('nc_admin_api_url', apiUrl);
+      localStorage.setItem('nc_admin_email', email);
+      status.textContent = 'Logging in…';
+      status.className = 'admin-status';
+      tableWrap.innerHTML = '';
+
+      try {
+        const loginRes = await fetch(`${apiUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const loginData = await loginRes.json();
+
+        if (!loginRes.ok || !loginData.success) {
+          status.textContent = loginData.message || `Login failed (${loginRes.status})`;
+          status.className = 'admin-status error';
+          return;
+        }
+        if (loginData.data.user.role !== 'admin') {
+          status.textContent = 'This account is not an admin account.';
+          status.className = 'admin-status error';
+          return;
+        }
+
+        accessToken = loginData.data.accessToken;
+        status.textContent = 'Loading orders…';
+        await loadOrders(apiUrl);
+      } catch (err) {
+        status.textContent = `Couldn't reach the API: ${err.message}`;
+        status.className = 'admin-status error';
+      }
+    }
+
+    async function loadOrders(apiUrl) {
+      const status = $('status');
+      try {
+        const res = await fetch(`${apiUrl}/api/admin/guest-orders`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          status.textContent = data.message || `Request failed (${res.status})`;
+          status.className = 'admin-status error';
+          return;
+        }
+
+        status.textContent = `${data.count} order${data.count === 1 ? '' : 's'} loaded.`;
+        status.className = 'admin-status ok';
+        renderTable(data.orders, apiUrl);
+      } catch (err) {
+        status.textContent = `Couldn't reach the API: ${err.message}`;
+        status.className = 'admin-status error';
+      }
+    }
+
+    async function updateStatus(apiUrl, orderId, newStatus) {
+      try {
+        const res = await fetch(`${apiUrl}/api/admin/guest-orders/${orderId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          alert(data.message || 'Failed to update status.');
+          return;
+        }
+        await loadOrders(apiUrl);
+      } catch (err) {
+        alert(`Couldn't reach the API: ${err.message}`);
+      }
+    }
+
+    function renderTable(orders, apiUrl) {
+      const tableWrap = $('tableWrap');
+      if (!orders.length) {
+        tableWrap.innerHTML = '<div class="empty-state">No orders yet.</div>';
+        return;
+      }
+
+      const statuses = ['new', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'];
+
+      const rows = orders.map(o => `
+        <tr>
+          <td><strong>${esc(o.orderId)}</strong><br><span style="color:var(--mute)">${new Date(o.createdAt).toLocaleString('en-IN')}</span></td>
+          <td>${esc(o.customerName)}<br><span style="color:var(--mute)">${esc(o.phone)}</span></td>
+          <td>${renderItemsCell(o)}</td>
+          <td>${esc(o.address)}, ${esc(o.city)} - ${esc(o.pincode)}</td>
+          <td>₹${o.total}<br><span style="color:var(--mute)">${o.paymentMethod.toUpperCase()}</span></td>
+          <td>
+            <select class="status-select" data-order-id="${esc(o.orderId)}" style="border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:0.76rem;">
+              ${statuses.map(s => `<option value="${s}" ${s === o.status ? 'selected' : ''}>${s.replace('_', ' ')}</option>`).join('')}
+            </select>
+          </td>
+        </tr>
+      `).join('');
+
+      tableWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr><th>Order</th><th>Customer</th><th>Item</th><th>Address</th><th>Total</th><th>Status</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+
+      tableWrap.querySelectorAll('.status-select').forEach(sel => {
+        sel.addEventListener('change', () => updateStatus(apiUrl, sel.dataset.orderId, sel.value));
+      });
+    }
+
+    function renderItemsCell(o) {
+      const items = Array.isArray(o.items) && o.items.length > 0 ? o.items : [{ productName: o.productName, quantity: o.quantity }];
+      if (items.length === 1) {
+        return `${esc(items[0].productName)} × ${items[0].quantity}<br><span style="color:var(--mute)">${esc(o.productCategory || '')}</span>`;
+      }
+      const lines = items.map(i => `${esc(i.productName)} × ${i.quantity}`).join('<br>');
+      return `<span style="color:var(--mute);font-size:0.68rem;">${items.length} items</span><br>${lines}`;
+    }
+
+    function esc(str) {
+      const div = document.createElement('div');
+      div.textContent = str == null ? '' : String(str);
+      return div.innerHTML;
+    }
+  </script>
+</body>
+
+</html>

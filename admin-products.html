@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Manager — Naushad Cosmetics</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="nc.css">
+  <link rel="stylesheet" href="admin-products.css">
+</head>
+
+<body>
+  <div class="ap-wrap">
+
+    <!-- ============ LOGIN SCREEN ============ -->
+    <div class="ap-login-screen" id="loginScreen">
+      <div class="ap-login-card">
+        <div class="brand-mark" style="margin: 0 auto 16px;">NC</div>
+        <h1>Product Manager</h1>
+        <p class="ap-login-sub">Log in with your admin account to add, edit, or remove products.</p>
+
+        <div class="field">
+          <label for="apApiUrl">Backend API URL</label>
+          <input type="text" id="apApiUrl" placeholder="https://your-api.onrender.com">
+        </div>
+        <div class="field">
+          <label for="apEmail">Admin Email</label>
+          <input type="email" id="apEmail" placeholder="admin@store.com">
+        </div>
+        <div class="field">
+          <label for="apPassword">Password</label>
+          <input type="password" id="apPassword" placeholder="••••••••">
+        </div>
+
+        <button type="button" class="ap-btn-primary" id="loginBtn" style="width:100%;">Log In</button>
+        <p class="ap-status" id="loginStatus"></p>
+
+        <p class="ap-hint">Don't have an admin account yet? Run <code>npm run seed</code> on your backend to create one — see <code>backend/README.md</code>.</p>
+      </div>
+    </div>
+
+    <!-- ============ MAIN PANEL (shown after login) ============ -->
+    <div class="ap-panel" id="mainPanel" style="display:none;">
+      <header class="ap-header">
+        <div class="ap-header-inner">
+          <a href="cosmetics.html" class="brand">
+            <div class="brand-mark">NC</div>
+            <div class="brand-name">Product Manager</div>
+          </a>
+          <div class="ap-header-actions">
+            <a href="admin.html" class="ap-btn-outline">Orders Dashboard</a>
+            <button type="button" class="ap-btn-outline" id="logoutBtn">Log Out</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="ap-main">
+        <div class="ap-toolbar">
+          <div>
+            <h2>All Products</h2>
+            <p id="productCount" class="ap-muted">Loading…</p>
+          </div>
+          <div class="ap-toolbar-actions">
+            <input type="text" id="searchBox" class="ap-search" placeholder="Search products…">
+            <button type="button" class="ap-btn-primary" id="addNewBtn">+ Add New</button>
+          </div>
+        </div>
+
+        <div class="ap-table-wrap">
+          <table class="ap-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Category</th>
+                <th>Brand</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody"></tbody>
+          </table>
+          <div class="ap-empty" id="emptyState" style="display:none;">
+            <p>No products yet. Click <strong>+ Add New</strong> to create your first one.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ============ ADD / EDIT PRODUCT MODAL ============ -->
+  <div class="ap-modal-backdrop" id="modalBackdrop">
+    <div class="ap-modal">
+      <div class="ap-modal-header">
+        <h3 id="modalTitle">Add New Product</h3>
+        <button type="button" class="ap-modal-close" id="modalClose" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="productForm" class="ap-modal-body">
+        <input type="hidden" id="productId">
+
+        <div class="field">
+          <label for="pName">Product Title *</label>
+          <input type="text" id="pName" placeholder="e.g. Rice Water &amp; Niacinamide Face Wash" required>
+        </div>
+
+        <div class="ap-field-grid">
+          <div class="field">
+            <label for="pBrand">Brand *</label>
+            <input type="text" id="pBrand" list="brandList" placeholder="e.g. Mamaearth" required>
+            <datalist id="brandList"></datalist>
+          </div>
+          <div class="field">
+            <label for="pCategory">Category *</label>
+            <input type="text" id="pCategory" list="categoryList" placeholder="e.g. Skincare" required>
+            <datalist id="categoryList"></datalist>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="pShortDesc">Short Description (shown on the product card) *</label>
+          <textarea id="pShortDesc" rows="2" placeholder="A short, punchy line about this product." required></textarea>
+        </div>
+
+        <div class="field">
+          <label for="pDescription">Full Description *</label>
+          <textarea id="pDescription" rows="3" placeholder="Full details about the product." required></textarea>
+        </div>
+
+        <div class="field">
+          <label for="pHowTo">How To Use <span class="ap-optional">(optional)</span></label>
+          <textarea id="pHowTo" rows="2" placeholder="e.g. Apply on damp face, massage gently, rinse off."></textarea>
+        </div>
+
+        <div class="ap-field-grid">
+          <div class="field">
+            <label for="pPrice">Price (₹) *</label>
+            <input type="number" id="pPrice" min="0" placeholder="e.g. 299" required>
+          </div>
+          <div class="field">
+            <label for="pDiscountPrice">Discounted Price (₹) <span class="ap-optional">(optional)</span></label>
+            <input type="number" id="pDiscountPrice" min="0" placeholder="e.g. 249">
+          </div>
+        </div>
+
+        <div class="ap-field-grid">
+          <div class="field">
+            <label for="pSku">SKU <span class="ap-optional">(auto-generated if left blank)</span></label>
+            <input type="text" id="pSku" placeholder="e.g. NC-SKIN-001">
+          </div>
+          <div class="field">
+            <label for="pStock">Stock Quantity *</label>
+            <input type="number" id="pStock" min="0" placeholder="e.g. 50" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="pStatus">Status</label>
+          <select id="pStatus">
+            <option value="active">Active (visible on the site)</option>
+            <option value="draft">Draft (hidden for now)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="pImage">Product Image <span class="ap-optional">(optional, can add after saving too)</span></label>
+          <input type="file" id="pImage" accept="image/jpeg,image/png,image/webp">
+          <div class="ap-image-preview" id="imagePreview" style="display:none;">
+            <img id="imagePreviewImg" src="" alt="Preview">
+          </div>
+        </div>
+
+        <p class="ap-form-error" id="formError" style="display:none;"></p>
+
+        <div class="ap-modal-actions">
+          <button type="button" class="ap-btn-outline" id="cancelModalBtn">Cancel</button>
+          <button type="submit" class="ap-btn-primary" id="saveProductBtn">Save Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ DELETE CONFIRM MODAL ============ -->
+  <div class="ap-modal-backdrop" id="deleteBackdrop">
+    <div class="ap-modal ap-modal-small">
+      <div class="ap-modal-body" style="padding-top: 24px;">
+        <p>Are you sure you want to delete <strong id="deleteProductName"></strong>? This can't be undone.</p>
+        <div class="ap-modal-actions">
+          <button type="button" class="ap-btn-outline" id="cancelDeleteBtn">Cancel</button>
+          <button type="button" class="ap-btn-danger" id="confirmDeleteBtn">Delete Product</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Saved!</div>
+
+  <script src="admin-products.js"></script>
+</body>
+
+</html>
